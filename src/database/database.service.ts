@@ -1,35 +1,64 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import * as mysql from 'mysql2/promise';
-import * as dotenv from 'dotenv';
 
-dotenv.config();
+import {
+  Injectable,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
+
+import * as mysql from 'mysql2/promise';
 
 @Injectable()
-export class DatabaseService implements OnModuleInit, OnModuleDestroy {
+export class DatabaseService
+  implements OnModuleInit, OnModuleDestroy
+{
   pool!: mysql.Pool;
 
   async onModuleInit() {
+    const requiredVariables = [
+      'DB_HOST',
+      'DB_PORT',
+      'DB_USER',
+      'DB_PASSWORD',
+      'DB_NAME',
+    ];
+
+    // Check required database environment variables.
+    for (const variable of requiredVariables) {
+      if (!process.env[variable]) {
+        throw new Error(
+          `Missing required environment variable: ${variable}`,
+        );
+      }
+    }
+
+    // Create the MySQL connection pool.
     this.pool = mysql.createPool({
-      host: process.env.DB_HOST || 'mysql-3b854787-ncf-7115.d.aivencloud.com',
-      port: +(process.env.DB_PORT || 20615),
-      user: process.env.DB_USER || 'avnadmin',
-      password: process.env.DB_PASSWORD || 'UseYourAivenDBPassword',
-      database: process.env.DB_NAME || 'defaultdb',
+      host: process.env.DB_HOST!,
+      port: Number(process.env.DB_PORT),
+      user: process.env.DB_USER!,
+      password: process.env.DB_PASSWORD!,
+      database: process.env.DB_NAME!,
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
     });
 
-    // optional: test connection
-    const conn = await this.pool.getConnection();
-    await conn.ping();
-    conn.release();
+    // Test the database connection.
+    const connection = await this.pool.getConnection();
 
-    console.log('MySQL pool created');
+    try {
+      await connection.ping();
+
+      console.log('MySQL database connected successfully');
+    } finally {
+      connection.release();
+    }
   }
 
   async onModuleDestroy() {
-    await this.pool.end();
+    if (this.pool) {
+      await this.pool.end();
+    }
   }
 
   getPool() {
