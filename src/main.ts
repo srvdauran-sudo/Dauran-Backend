@@ -10,10 +10,10 @@ async function bootstrap() {
   const port = Number(process.env.PORT);
 
   app.enableCors();
-  // await app.listen(port);
+  //await app.listen(port);
 
   app.getHttpAdapter().get('/', (req, res) =>
-    res.send({ message: 'Server Running Successfully!' }),
+    res.send({ message: 'Dauran Server Running Successfully!' }),
   );
 
   await app.listen(port, '0.0.0.0');

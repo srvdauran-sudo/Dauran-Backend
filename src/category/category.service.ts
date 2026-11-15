@@ -3,7 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+
+import {
+  RowDataPacket,
+  ResultSetHeader,
+} from 'mysql2';
+
 import { DatabaseService } from '../database/database.service';
 
 @Injectable()
@@ -33,24 +38,26 @@ export class CategoryService {
     };
   }
 
-  async getAll() {
+  async getAll(userId: number) {
     const [rows] = await this.pool().execute<RowDataPacket[]>(
       `SELECT category_id, category_name, description,
               id, created_at, updated_at
        FROM category
+       WHERE id = ?
        ORDER BY category_id DESC`,
+      [userId],
     );
 
     return rows;
   }
 
-  async findById(categoryId: number) {
+  async findById(categoryId: number, userId: number) {
     const [rows] = await this.pool().execute<RowDataPacket[]>(
       `SELECT category_id, category_name, description,
               id, created_at, updated_at
        FROM category
-       WHERE category_id = ?`,
-      [categoryId],
+       WHERE category_id = ? AND id = ?`,
+      [categoryId, userId],
     );
 
     if (rows.length === 0) {
@@ -62,6 +69,7 @@ export class CategoryService {
 
   async updateCategory(
     categoryId: number,
+    userId: number,
     partial: {
       category_name?: string;
       description?: string;
@@ -81,31 +89,34 @@ export class CategoryService {
     }
 
     if (fields.length === 0) {
-      return this.findById(categoryId);
+      return this.findById(categoryId, userId);
     }
 
-    values.push(categoryId);
+    values.push(categoryId, userId);
 
     await this.pool().execute(
       `UPDATE category
        SET ${fields.join(', ')}
-       WHERE category_id = ?`,
+       WHERE category_id = ? AND id = ?`,
       values,
     );
 
-    return this.findById(categoryId);
+    return this.findById(categoryId, userId);
   }
 
-  async deleteCategory(categoryId: number) {
+  async deleteCategory(categoryId: number, userId: number) {
     const [result] = await this.pool().execute<ResultSetHeader>(
-      `DELETE FROM category WHERE category_id = ?`,
-      [categoryId],
+      `DELETE FROM category
+       WHERE category_id = ? AND id = ?`,
+      [categoryId, userId],
     );
 
     if (result.affectedRows === 0) {
       throw new NotFoundException('Category not found');
     }
 
-    return { message: 'Category deleted successfully' };
+    return {
+      message: 'Category deleted successfully',
+    };
   }
 }

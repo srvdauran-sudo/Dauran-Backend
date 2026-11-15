@@ -10,17 +10,28 @@ import {
   Req,
   UseGuards,
   UnauthorizedException,
+  ParseIntPipe,
 } from '@nestjs/common';
 
 import { CategoryService } from './category.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-type AuthenticatedRequest = {
+interface CategoryRequest {
   user?: {
     id?: number;
     userId?: number;
   };
-};
+}
+
+interface CreateCategoryDto {
+  category_name: string;
+  description?: string;
+}
+
+interface UpdateCategoryDto {
+  category_name?: string;
+  description?: string;
+}
 
 @Controller('categories')
 @UseGuards(JwtAuthGuard)
@@ -29,57 +40,67 @@ export class CategoryController {
     private readonly categoryService: CategoryService,
   ) {}
 
+  private getUserId(req: CategoryRequest): number {
+    const userId = Number(
+      req.user?.id ?? req.user?.userId,
+    );
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw new UnauthorizedException('Valid user ID was not found');
+    }
+
+    return userId;
+  }
+
   @Get()
-  async getAll() {
-    return this.categoryService.getAll();
+  async getAll(@Req() req: CategoryRequest) {
+    return this.categoryService.getAll(this.getUserId(req));
   }
 
   @Get(':id')
-  async getOne(@Param('id') id: string) {
-    return this.categoryService.findById(Number(id));
+  async getOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: CategoryRequest,
+  ) {
+    return this.categoryService.findById(
+      id,
+      this.getUserId(req),
+    );
   }
 
   @Post()
   async create(
-    @Req() req: AuthenticatedRequest,
-    @Body()
-    body: {
-      category_name: string;
-      description?: string;
-    },
+    @Req() req: CategoryRequest,
+    @Body() body: CreateCategoryDto,
   ) {
-    const userId = req.user?.id ?? req.user?.userId;
-
-    if (userId === undefined) {
-      throw new UnauthorizedException(
-        'User ID was not found in the authenticated request',
-      );
-    }
-
     return this.categoryService.createCategory(
       body.category_name,
       body.description,
-      Number(userId),
+      this.getUserId(req),
     );
   }
 
   @Put(':id')
   async update(
-    @Param('id') id: string,
-    @Body()
-    body: {
-      category_name?: string;
-      description?: string;
-    },
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: CategoryRequest,
+    @Body() body: UpdateCategoryDto,
   ) {
     return this.categoryService.updateCategory(
-      Number(id),
+      id,
+      this.getUserId(req),
       body,
     );
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    return this.categoryService.deleteCategory(Number(id));
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: CategoryRequest,
+  ) {
+    return this.categoryService.deleteCategory(
+      id,
+      this.getUserId(req),
+    );
   }
 }
